@@ -1,0 +1,120 @@
+window.__ModuleLoader__.load({
+  id: '@local/dsh-rtl-chat',
+  factory(require) {
+    const React = require('react');
+    const h = React.createElement;
+
+    // --- Scope: only the conversation answer area ------------------------------
+    // The Conversation shell renders its message scroll port as
+    // div.scrollBody[data-conversation-scroll] (see @deepseek-ai/dsh-client-ui-conversation).
+    // Direction is applied there alone, so the header, sidebar, and banner keep LTR.
+    const RTL_CSS = [
+      '[data-conversation-scroll]{direction:rtl;}',
+      '[data-conversation-scroll] pre,[data-conversation-scroll] code,',
+      '[data-conversation-scroll] kbd,[data-conversation-scroll] samp{',
+      ' direction:ltr;unicode-bidi:embed;}',
+      '[data-conversation-scroll] pre{text-align:left;}',
+    ].join('');
+
+    const BTN_CSS = [
+      '.dsh-rtl-toggle{',
+      ' display:inline-flex;align-items:center;gap:6px;',
+      ' padding:4px 10px;margin-inline-end:8px;',
+      ' border:1px solid var(--dsw-alias-border-l2);border-radius:999px;',
+      " background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);",
+      ' font-size:12px;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;',
+      '}',
+      '.dsh-rtl-toggle:hover{background:var(--dsw-alias-bg-layer-2);}',
+      ".dsh-rtl-toggle:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px;}",
+      '.dsh-rtl-toggle__glyph{font-size:13px;color:var(--dsw-alias-label-secondary);}',
+      '.dsh-rtl-toggle__mode{font-weight:600;letter-spacing:.5px;}',
+    ].join('');
+
+    // --- Direction state (persisted per browser) --------------------------------
+    const STORAGE_KEY = 'dsh-rtl-chat.dir';
+    const listeners = new Set();
+    let rtlActive = false;
+    let rtlCssDisposer = null;
+
+    function readStoredDir() {
+      try {
+        const value = window.localStorage.getItem(STORAGE_KEY);
+        if (value === 'rtl' || value === 'ltr') return value;
+      } catch {
+        /* localStorage unavailable; fall back to the default */
+      }
+      return 'rtl';
+    }
+
+    function applyDir(next) {
+      rtlActive = next === 'rtl';
+      try {
+        window.localStorage.setItem(STORAGE_KEY, next);
+      } catch {
+        /* persistence is best-effort */
+      }
+      if (rtlActive && !rtlCssDisposer) {
+        rtlCssDisposer = styles.insert(RTL_CSS);
+      } else if (!rtlActive && rtlCssDisposer) {
+        rtlCssDisposer();
+        rtlCssDisposer = null;
+      }
+      listeners.forEach((notify) => {
+        try {
+          notify();
+        } catch {
+          /* one broken listener must not break the rest */
+        }
+      });
+    }
+
+    // --- Toggle control ----------------------------------------------------------
+    function RtlToggle() {
+      const [, bump] = React.useReducer((n) => n + 1, 0);
+      React.useEffect(() => {
+        listeners.add(bump);
+        return () => listeners.delete(bump);
+      }, []);
+      const rtl = rtlActive;
+      return h(
+        'button',
+        {
+          type: 'button',
+          className: 'dsh-rtl-toggle',
+          title: rtl
+            ? 'التبديل إلى الاتجاه من اليسار إلى اليمين (LTR)'
+            : 'التبديل إلى الاتجاه من اليمين إلى اليسار (RTL)',
+          'aria-label': rtl
+            ? 'Switch the conversation back to left-to-right'
+            : 'Switch the conversation to right-to-left',
+        },
+        h('span', { className: 'dsh-rtl-toggle__glyph', 'aria-hidden': true }, '\u21C4'),
+        h('span', { className: 'dsh-rtl-toggle__mode' }, rtl ? 'RTL' : 'LTR'),
+      );
+    }
+
+    return {
+      inject: ['slots'],
+      apply(ctx) {
+        styles.insert(BTN_CSS);
+        applyDir(readStoredDir());
+        ctx.effect(
+          () => () => {
+            // Plugin unload removes the RTL stylesheet.
+            if (rtlCssDisposer) {
+              rtlCssDisposer();
+              rtlCssDisposer = null;
+            }
+          },
+          'dsh-rtl-chat:rtl-css',
+        );
+        ctx.slots.inject('conversation.header.leading', () =>
+          ctx.slots.register(
+            { name: 'conversation.header.leading', id: 'dsh-rtl-chat' },
+            RtlToggle,
+          ),
+        );
+      },
+    };
+  },
+});

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "RTL Chat",
+    "description": "Reads the conversation page and outputs right-to-left for Arabic, with a header button to switch back to left-to-right."
+  }
+}
