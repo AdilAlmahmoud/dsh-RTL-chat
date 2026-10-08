@@ -1,8 +1,14 @@
 {
   "name": "@local/dsh-rtl-chat",
   "version": "1.0.0",
+  "description": "Right-to-left reading mode for the DeepSeek Harness conversation answer area, with a one-click LTR/RTL toggle.",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AdilAlmahmoud/dsh-rtl-chat.git"
+  },
   "icon": "./icon.svg",
   "exports": {
     ".": "./index.js",
